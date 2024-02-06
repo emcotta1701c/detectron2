@@ -47,6 +47,9 @@ from detectron2.utils.logger import setup_logger
 from . import hooks
 from .train_loop import AMPTrainer, SimpleTrainer, TrainerBase
 
+# new imports
+from detectron2.data import DatasetMapper   # the default mapper
+
 __all__ = [
     "create_ddp_model",
     "default_argument_parser",
@@ -546,7 +549,20 @@ class DefaultTrainer(TrainerBase):
         It now calls :func:`detectron2.data.build_detection_train_loader`.
         Overwrite it if you'd like a different data loader.
         """
-        return build_detection_train_loader(cfg)
+        # Resize, flip augmentation
+        # dataloader = build_detection_train_loader(cfg,
+        #     mapper=DatasetMapper(cfg, is_train=True, augmentations=[
+        #     T.Resize((2000, 2000), T.RandomFlip(0.5))
+        # ]))
+
+        # Rotate/resize, flip augmentation
+        dataloader = build_detection_train_loader(cfg,
+            mapper=DatasetMapper(cfg, is_train=True, augmentations=[
+            T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
+        ]))
+
+        return dataloader
+        #return build_detection_train_loader(cfg)
 
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
