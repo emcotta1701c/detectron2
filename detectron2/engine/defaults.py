@@ -400,6 +400,9 @@ class DefaultTrainer(TrainerBase):
 
         self.register_hooks(self.build_hooks())
 
+        # Implementation of transfer learning here, uncomment when ready
+        # self.transfer_learning = schedule_transfer_learning()
+
     def resume_or_load(self, resume=True):
         """
         If `resume==True` and `cfg.OUTPUT_DIR` contains the last checkpoint (defined by
@@ -495,8 +498,52 @@ class DefaultTrainer(TrainerBase):
             return self._last_eval_results
 
     def run_step(self):
+        # implementing transfer learning here
+        # Uncomment later!
+        # phase = next(transfer_learning)
+        # if phase != -1:
+        #    print("Entering transfer learning phase:", phase)
         self._trainer.iter = self.iter
         self._trainer.run_step()
+    
+    def schedule_transfer_learning(self):
+        iters = [1000, 2000]
+        phase = 0
+        # Freeze whole model
+        for param in self.model.parameters():
+            param.requires_grad = False
+        # Phase 1: Unfreeze only the roi_heads
+        # Change later to only unfreeze final backbone layers and fpn
+        for param in self.model.roi_heads.parameters():
+            param.requires_grad = True
+        phase = 1
+        yield 1
+
+        while True:
+            if self.iter != iters[phase-1]:
+                yield -1
+            else:
+                break
+
+        # Phase 2: Unfreeze region proposal generator with reduced lr
+        # RPG is called proposal generator in this repo
+        for param in self.model.proposal_generator.parameters():
+            param.requires_grad = True
+        phase = 2
+        yield 2
+
+        while True:
+            if self.iter != iters[phase-1]:
+                yield -1
+            else:
+                break
+
+        # Phase 3: Fine tuning of whole model on all layers with reduced lr
+        # Don't forget to set learning rate lower
+        for param in self.model.parameters():
+            param.requires_grad = True
+        phase = 3
+        return 3
 
     def state_dict(self):
         ret = super().state_dict()
