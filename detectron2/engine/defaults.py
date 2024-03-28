@@ -599,7 +599,7 @@ class DefaultTrainer(TrainerBase):
         # Resize, flip augmentation; used to resize to (2000, 2000)
         # dataloader = build_detection_train_loader(cfg,
         #     mapper=DatasetMapper(cfg, is_train=True, augmentations=[
-        #     T.Resize((1024, 1024), T.RandomFlip(0.5))
+        #     T.Resize((1024, 1024)), T.RandomFlip(0.5)
         # ]))
 
         # Minimal flip augmentation
@@ -621,7 +621,7 @@ class DefaultTrainer(TrainerBase):
         """
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
-            T.Resize((1024, 1024), T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
+            T.Resize((1024, 1024)), T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
         ]))
         """
         
@@ -644,6 +644,14 @@ class DefaultTrainer(TrainerBase):
             dataset_name,
             mapper=DatasetMapper(cfg, is_train=False, augmentations=[T.NoOpTransform])
         )
+
+        # If want to resize during test time:
+        """
+        test_loader = build_detection_test_loader(cfg,
+            dataset_name,
+            mapper=DatasetMapper(cfg, is_train=False, augmentations=[T.Resize((1024, 1024))])
+        )
+        """
         
         return test_loader
 
