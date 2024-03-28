@@ -596,18 +596,35 @@ class DefaultTrainer(TrainerBase):
         It now calls :func:`detectron2.data.build_detection_train_loader`.
         Overwrite it if you'd like a different data loader.
         """
-        # Resize, flip augmentation
+        # Resize, flip augmentation; used to resize to (2000, 2000)
         # dataloader = build_detection_train_loader(cfg,
         #     mapper=DatasetMapper(cfg, is_train=True, augmentations=[
-        #     T.Resize((2000, 2000), T.RandomFlip(0.5))
+        #     T.Resize((1024, 1024), T.RandomFlip(0.5))
         # ]))
 
-        # Rotate/resize, flip augmentation
+        # Minimal flip augmentation
+        dataloader = build_detection_train_loader(cfg,
+            mapper=DatasetMapper(cfg, is_train=True, augmentations=[
+            T.RandomFlip(0.5)
+        ]))
+
+        # Rotate, flip augmentation
+        """
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
             T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
         ]))
+        """
 
+        # Resize, rotate, flip augmentation
+        # Resizing before rotation so rotation less computationally expensive
+        """
+        dataloader = build_detection_train_loader(cfg,
+            mapper=DatasetMapper(cfg, is_train=True, augmentations=[
+            T.Resize((1024, 1024), T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
+        ]))
+        """
+        
         return dataloader
         #return build_detection_train_loader(cfg)
 
