@@ -9,6 +9,7 @@ from detectron2.layers import Conv2d, ShapeSpec, get_norm
 
 from .backbone import Backbone
 from .build import BACKBONE_REGISTRY
+from .build import build_backbone
 from .resnet import build_resnet_backbone
 
 __all__ = ["build_resnet_fpn_backbone", "build_retinanet_resnet_fpn_backbone", "FPN"]
@@ -243,9 +244,9 @@ def build_resnet_fpn_backbone(cfg, input_shape: ShapeSpec):
     )
     return backbone
 
-# ConvNeXtV2 backbone with FPN; not in original detectron2 repo
+# More generic custom FPN, useful for ConvNeXt V2; not in original detectron2 repo
 @BACKBONE_REGISTRY.register()
-def build_convnextv2_fpn_backbone(cfg, input_shape: ShapeSpec):
+def build_generic_fpn_backbone(cfg, input_shape: ShapeSpec):
     """
     Args:
         cfg: a detectron2 CfgNode
@@ -254,7 +255,7 @@ def build_convnextv2_fpn_backbone(cfg, input_shape: ShapeSpec):
         backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
     """
     # bottom_up = build_resnet_backbone(cfg, input_shape)
-    bottom_up = cfg.MODEL.BACKBONE.NAME()  # this needs to be tested
+    bottom_up = build_backbone(cfg, input_shape)
     in_features = cfg.MODEL.FPN.IN_FEATURES
     out_channels = cfg.MODEL.FPN.OUT_CHANNELS
     backbone = FPN(
