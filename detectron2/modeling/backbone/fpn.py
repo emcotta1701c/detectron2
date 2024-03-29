@@ -254,7 +254,9 @@ def build_convnextv2_fpn_backbone(cfg, input_shape: ShapeSpec):
     Returns:
         backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
     """
-    bottom_up = build_convnextv2_backbone(cfg, input_shape)
+    # Use backbone registry to access build_convnextv2_backbone()
+
+    bottom_up = BACKBONE_REGISTRY.get("build_convnextv2_backbone")(cfg, input_shape)
     in_features = cfg.MODEL.FPN.IN_FEATURES
     out_channels = cfg.MODEL.FPN.OUT_CHANNELS
     backbone = FPN(
