@@ -508,33 +508,48 @@ class DefaultTrainer(TrainerBase):
     def run_step(self):
         # implementing transfer learning here
         # Uncomment later!
-        # phase = next(transfer_learning)
-        # if phase != -1:
-        #    print("Entering transfer learning phase:", phase)
+        phase = next(transfer_learning)
+        if phase != -1:
+           print("Entered transfer learning phase:", phase)
         self._trainer.iter = self.iter
         self._trainer.run_step()
     
     def schedule_transfer_learning(self):
+        # Implemented as a generator
+        # For use only with Generalized R-CNN
         iters = [1000, 2000]
         # Pretrain: Both backbone and mask r-cnn should be loaded separately
         # Custom backbone should init itself from a file
         # If backbone random init and mask r-cnn not random init, then only unfreeze backbone
-        # iter 0-1000: Unfreeze backbone last layers
-        # iter 2000-: Unfreeze backbone last layers and mask r-cnn heads
+        # iter 0-1000: Unfreeze backbone last layers (phase 1)
+        # iter 1000-2000: Unfreeze backbone last layers and mask r-cnn heads
+        # iter 2000-: Unfreeze whole model
         # Freeze backbone up to layer N: TO-DO
         # Freeze Mask R-CNN ROI Heads: TO-DO
         # Unfreeze Mask R-CNN ROI Heads: TO-DO
         # Freeze FPN: TO-DO
         # Unfreeze FPN: TO-DO
-        phase = 0
+        # Ignoring learning rate changes for now, can just set learning rate to be small in first place
+        phase = 0 # Freezing not applied yet.
         # Freeze whole model
         for param in self.model.parameters():
             param.requires_grad = False
         # Phase 1: Unfreeze only the roi_heads
-        # Change later to only unfreeze final backbone layers and fpn
+        # Change later to only unfreeze final backbone layers and fpn <- ?
+        phase = 1
         for param in self.model.roi_heads.parameters():
             param.requires_grad = True
-        phase = 1
+        print("Unfroze ROI heads.")
+        """
+        for param in self.model.backbone.parameters():
+            # Unfreeze all, then freeze with freeze_at param
+            param.requires_grad = True
+        # Now, freeze backbone params up to desired stage (0 - none, 1 - stem, 2 - stem, stage 2, etc.)
+        self.model.backbone.freeze(freeze_at=5) # all stages frozen
+        print("Backbone frozen.")
+        """
+        # self.model.backbone.freeze(freeze_at=4) # only last stage unfrozen
+        # print("Backbone frozen, except for last layer.")
         yield 1
 
         while True:
@@ -547,6 +562,7 @@ class DefaultTrainer(TrainerBase):
         # RPG is called proposal generator in this repo
         for param in self.model.proposal_generator.parameters():
             param.requires_grad = True
+        print("Unfroze region proposal generator.")
         phase = 2
         yield 2
 
@@ -558,10 +574,31 @@ class DefaultTrainer(TrainerBase):
 
         # Phase 3: Fine tuning of whole model on all layers with reduced lr
         # Don't forget to set learning rate lower
+        # Actually, let's just unfreeze last layers of backbone
+        for param in self.model.backbone.parameters():
+            # Unfreeze all, then freeze with freeze_at param
+            param.requires_grad = True
+        # Now, freeze backbone params up to desired stage (0 - none, 1 - stem, 2 - stem + stage 2, etc.)
+        self.model.backbone.freeze(freeze_at=4)
+        print("Unfroze last layer of backbone.")
+        phase = 3
+        yield 3
+
+        while True:
+            if self.iter != iters[phase-1]:
+                yield -1
+            else:
+                break
+
+        # Unfreeze whole model, phase 4
         for param in self.model.parameters():
             param.requires_grad = True
-        phase = 3
-        return 3
+        phase = 4
+        print("Unfroze whole model. Last transfer learning phase initiated.")
+        yield 4
+
+        while True:
+            yield -1
 
     def state_dict(self):
         ret = super().state_dict()
