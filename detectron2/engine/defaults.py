@@ -386,11 +386,8 @@ class DefaultTrainer(TrainerBase):
         # Can treat as a list in future if want to load multiple submodules
         if backbone_weights != None:
             # Confirm backbone_weights file exists
-            # Expecting .pth file
-            assert os.path.isfile(backbone_weights), "Error DefaultTrainer, backbone_weights file can not be found."
-            assert ".pth" in backbone_weights, "Error DefaultTrainer, backbone_weights is not a .pth file."
-            weights = torch.load(backbone_weights)
-            model.load_state_dict(weights, strict=False)
+            # Expecting deserialized .pth
+            model.load_state_dict(backbone_weights, strict=False)
             # Backbone, or other file, now initialized with pretrained weights.
 
         model = create_ddp_model(model, broadcast_buffers=False)
