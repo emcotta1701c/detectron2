@@ -366,7 +366,7 @@ class DefaultTrainer(TrainerBase):
         cfg (CfgNode):
     """
     # Adding new param for adding submodule weight ifle
-    def __init__(self, cfg, backbone_weights=None, transfer_learning_iters=[800,1600,2400]):
+    def __init__(self, cfg, backbone_weights=None, trans_lr_iters=[800,1600,2400]):
         """
         Args:
             cfg (CfgNode):
@@ -410,11 +410,11 @@ class DefaultTrainer(TrainerBase):
 
         # Implementation of transfer learning here, uncomment when ready
         self.transfer_learning = schedule_transfer_learning()
-        if type(transfer_learning) is not list:
-            print("Error, DefaultTrainer: expected transfer_learning_iters parameter to be a Python list.")
-        if len(transfer_learning_iters) != 3:
-            print("Error, DefaultTrainer: expected 3 iteration counts in transfer_learning_iters parameter.")
-        transfer_learning_gen = schedule_transfer_learning(iters=transfer_learning_iters)
+        if type(trans_lr_iters) is not list:
+            print("Error, DefaultTrainer: expected trans_lr_iters parameter to be a Python list.")
+        if len(trans_lr_iters) != 3:
+            print("Error, DefaultTrainer: expected exactly 3 iteration counts in trans_lr_iters parameter.")
+        transfer_learning_gen = schedule_transfer_learning(iters=trans_lr_iters)
 
     def resume_or_load(self, resume=True):
         """
