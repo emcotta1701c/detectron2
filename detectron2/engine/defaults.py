@@ -366,7 +366,7 @@ class DefaultTrainer(TrainerBase):
         cfg (CfgNode):
     """
     # Adding new param for adding submodule weight ifle
-    def __init__(self, cfg, backbone_weights=None):
+    def __init__(self, cfg, backbone_weights=None, transfer_learning_iters=[800,1600,2400]):
         """
         Args:
             cfg (CfgNode):
@@ -409,7 +409,12 @@ class DefaultTrainer(TrainerBase):
         self.register_hooks(self.build_hooks())
 
         # Implementation of transfer learning here, uncomment when ready
-        # self.transfer_learning = schedule_transfer_learning()
+        self.transfer_learning = schedule_transfer_learning()
+        if type(transfer_learning) is not list:
+            print("Error, DefaultTrainer: expected transfer_learning_iters parameter to be a Python list.")
+        if len(transfer_learning_iters) != 3:
+            print("Error, DefaultTrainer: expected 3 iteration counts in transfer_learning_iters parameter.")
+        transfer_learning_gen = schedule_transfer_learning(iters=transfer_learning_iters)
 
     def resume_or_load(self, resume=True):
         """
@@ -514,10 +519,9 @@ class DefaultTrainer(TrainerBase):
         self._trainer.iter = self.iter
         self._trainer.run_step()
     
-    def schedule_transfer_learning(self):
+    def schedule_transfer_learning(self, iters):
         # Implemented as a generator
         # For use only with Generalized R-CNN
-        iters = [1000, 2000]
         # Pretrain: Both backbone and mask r-cnn should be loaded separately
         # Custom backbone should init itself from a file
         # If backbone random init and mask r-cnn not random init, then only unfreeze backbone
