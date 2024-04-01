@@ -508,6 +508,16 @@ class DefaultTrainer(TrainerBase):
     
     def schedule_transfer_learning(self):
         iters = [1000, 2000]
+        # Pretrain: Both backbone and mask r-cnn should be loaded separately
+        # Custom backbone should init itself from a file
+        # If backbone random init and mask r-cnn not random init, then only unfreeze backbone
+        # iter 0-1000: Unfreeze backbone last layers
+        # iter 2000-: Unfreeze backbone last layers and mask r-cnn heads
+        # Freeze backbone up to layer N: TO-DO
+        # Freeze Mask R-CNN ROI Heads: TO-DO
+        # Unfreeze Mask R-CNN ROI Heads: TO-DO
+        # Freeze FPN: TO-DO
+        # Unfreeze FPN: TO-DO
         phase = 0
         # Freeze whole model
         for param in self.model.parameters():
