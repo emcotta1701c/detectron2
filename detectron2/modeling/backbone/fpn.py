@@ -202,6 +202,71 @@ class DepthwiseSeparableConvolution(nn.Module):
         x = self.pointwise(x)
         return x
     
+class BIFPN_Node(nn.Module):
+    def __init__ (
+        self,
+        num_inputs
+    ):
+        super(BIFPN_Node, self).__init__()
+        self.num_inputs = num_inputs
+        self.weights = torch.nn.Parameter(data=torch.ones([num_inputs]), requires_grad=True)
+    def forward(self, inputs):
+        # inputs is a list of inputs to sum together
+        # all inputs should already have same shape (channels and resolution), i.e. [lateral, pyramid]
+        assert self.num_inputs == len(inputs), "Error BIFPN_Node, wrong num_inputs argument does not match #inputs."
+        weighted = torch.mul(self.weights, inputs) # Print weights if needed; weight lateral and pyramid inputs
+        summed = torch.sum(weighted, axis=0) # summed = weighted_lateral + weighted_pyramid
+        assert summed.shape == inputs.shape, "Error BIFPN_Node, unexpected input and output shape mismatch."
+        return summed
+
+
+class BIFPN_Stage1(nn.Module):
+    def __init__ (
+        self,
+        bottom_up, # Need ShapeSpec info from backbone to compute param dimensions of Conv layers
+        in_features, # Python list of output string names from backbone or previous BiFPN layer
+        out_channels
+    ):
+        super(BIFPN_Stage1, self).__init__()
+        assert len(in_features) >= 3, "Error BIFPN_Stage1, too few in_features to implement BiFPN."
+        self.chans = out_channels
+        self.nodes = create_nodes(in_features)
+        self.nodeNames = generate_names(in_features)
+
+        input_shapes = bottom_up.output_shape()
+        strides = [input_shapes[f].stride for f in in_features]
+        in_channels_per_feature = [input_shapes[f].channels for f in in_features]
+
+        _assert_strides_are_log2_contiguous(strides)
+        self.lateral_convs = create_lateral_convs(in_features, in_channels_per_feature)
+    
+    def create_nodes(self, in_features):
+        # expecting ["res2", "res3", "res4", "res5"]
+        # Create len(features)-2 nodes, each set up to accept two inputs (one lateral, one pyramid)
+        nodes = nn.ModuleList()
+        for i in range(1, len(in_features)-1):
+            nodes.append(BIFPN_Node(2))
+        return nodes
+
+    def generate_names(self, in_features):
+        # [res2,res3,res4,res5] -> [p3th,p4th]
+        assert 'res' in in_features[0], "Error BIFPN_Stage1, unexpected in_feature string name."
+        in_feature_nums = [in_features[i].split('res')[-1] for i in range(1, len(in_features))]
+        names = []
+        for num in in_feature_nums:
+            names.append("p"+num+"th")
+        assert len(names) == len(in_features)-2, "Error BIFPN_Stage1, incorrect #names generated."
+        return names
+
+    def create_lateral_convs(self, in_features):
+        lateral_convs = nn.ModuleList()
+        for i in range(1, len(in_features)-1):
+            lateral_convs.insert(0, Conv2d(, out_chans, kernel_size=1, stride=1, bias=bias))
+    
+    def forward(self, x):
+        # x: Dict(str->Tensor)
+        # Each name in in_features should already be a key in x
+        for 
 
 class BIFPN(Backbone):
     _fuse_type: torch.jit.Final[str]
@@ -251,8 +316,11 @@ class BIFPN(Backbone):
         in_channels_per_feature = [input_shapes[f].channels for f in in_features]
 
         _assert_strides_are_log2_contiguous(strides)
-        lateral_convs = []
-        output_convs = []
+        layers = nn.ModuleList()
+        lateral_convs = nn.ModuleList()
+        output_convs = nn.ModuleList()
+        #lateral_convs = []
+        #output_convs = []
 
         use_bias = norm == ""
         for idx, in_channels in enumerate(in_channels_per_feature):
