@@ -186,7 +186,7 @@ def _assert_strides_are_log2_contiguous(strides):
         )
 
 # Custom FPN: BIFPN
-
+"""
 class DepthwiseSeparableConvolution(nn.Module):
     def __init__(in_chans, out_chans, bias=use_bias):
         super(DepthwiseSeparableConvolution, self).__init__()
@@ -282,6 +282,7 @@ class BIFPN(Backbone):
         square_pad=0,
     ):
         """
+        """
         Args:
             bottom_up (Backbone): module representing the bottom up subnetwork.
                 Must be a subclass of :class:`Backbone`. The multi-scale feature
@@ -304,6 +305,7 @@ class BIFPN(Backbone):
                 ones. It can be "sum" (default), which sums up element-wise; or "avg",
                 which takes the element-wise mean of the two.
             square_pad (int): If > 0, require input images to be padded to specific square size.
+        """
         """
         super(FPN, self).__init__()
         assert isinstance(bottom_up, Backbone)
@@ -331,6 +333,7 @@ class BIFPN(Backbone):
                 in_channels, out_channels, kernel_size=1, bias=use_bias, norm=lateral_norm
             )
             """
+            """
             output_conv = Conv2d(
                 out_channels,
                 out_channels,
@@ -340,6 +343,7 @@ class BIFPN(Backbone):
                 bias=use_bias,
                 norm=output_norm,
             )
+            """
             """
             output_conv = DepthwiseSeparableConvolution(
                 out_channels,
@@ -386,6 +390,7 @@ class BIFPN(Backbone):
 
     def forward(self, x):
         """
+        """
         Args:
             input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
                 feature map tensor for each feature level in high to low resolution order.
@@ -396,6 +401,7 @@ class BIFPN(Backbone):
                 in high to low resolution order. Returned feature names follow the FPN
                 paper convention: "p<stage>", where stage has stride = 2 ** stage e.g.,
                 ["p2", "p3", ..., "p6"].
+        """
         """
         bottom_up_features = self.bottom_up(x)
         results = []
@@ -434,6 +440,7 @@ class BIFPN(Backbone):
             )
             for name in self._out_features
         }
+"""
 
 class LastLevelMaxPool(nn.Module):
     """
