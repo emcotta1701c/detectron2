@@ -409,7 +409,7 @@ class DefaultTrainer(TrainerBase):
         self.register_hooks(self.build_hooks())
 
         # Implementation of transfer learning here, uncomment when ready
-        self.transfer_learning = schedule_transfer_learning()
+        # self.transfer_learning = schedule_transfer_learning
         if type(trans_lr_iters) is not list:
             print("Error, DefaultTrainer: expected trans_lr_iters parameter to be a Python list.")
         if len(trans_lr_iters) != 3:
