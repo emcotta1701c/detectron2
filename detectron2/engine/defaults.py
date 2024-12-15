@@ -414,7 +414,7 @@ class DefaultTrainer(TrainerBase):
             print("Error, DefaultTrainer: expected trans_lr_iters parameter to be a Python list.")
         if len(trans_lr_iters) != 3:
             print("Error, DefaultTrainer: expected exactly 3 iteration counts in trans_lr_iters parameter.")
-        transfer_learning_gen = schedule_transfer_learning(iters=trans_lr_iters)
+        transfer_learning_gen = self.schedule_transfer_learning(iters=trans_lr_iters)
 
     def resume_or_load(self, resume=True):
         """
