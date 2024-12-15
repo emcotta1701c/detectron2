@@ -711,7 +711,7 @@ class DefaultTrainer(TrainerBase):
         """
         test_loader = build_detection_test_loader(cfg,
             dataset_name,
-            mapper=DatasetMapper(cfg, is_train=False, augmentations=[T.NoOpTransform])
+            mapper=DatasetMapper(cfg, is_train=False, augmentations=[])
         )
 
         # If want to resize during test time:
