@@ -583,7 +583,9 @@ class DefaultTrainer(TrainerBase):
             # Unfreeze all, then freeze with freeze_at param
             param.requires_grad = True
         # Now, freeze backbone params up to desired stage (0 - none, 1 - stem, 2 - stem + stage 2, etc.)
-        self.model.backbone.freeze(freeze_at=4)
+        # access underlying backbone
+        backbone = self.model.backbone.bottom_up    # Access ConvNeXtV2 directly
+        backbone.freeze(freeze_at=4)
         print("Unfroze last layer of backbone.")
         phase = 3
         yield 3
