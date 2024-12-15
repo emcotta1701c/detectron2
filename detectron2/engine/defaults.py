@@ -409,12 +409,12 @@ class DefaultTrainer(TrainerBase):
         self.register_hooks(self.build_hooks())
 
         # Implementation of transfer learning here, uncomment when ready
-        # self.transfer_learning = schedule_transfer_learning
+        self.transfer_learning = self.schedule_transfer_learning
         if type(trans_lr_iters) is not list:
             print("Error, DefaultTrainer: expected trans_lr_iters parameter to be a Python list.")
         if len(trans_lr_iters) != 3:
             print("Error, DefaultTrainer: expected exactly 3 iteration counts in trans_lr_iters parameter.")
-        transfer_learning_gen = self.schedule_transfer_learning(iters=trans_lr_iters)
+        self.transfer_learning_gen = self.transfer_learning(iters=trans_lr_iters)
 
     def resume_or_load(self, resume=True):
         """
@@ -513,7 +513,7 @@ class DefaultTrainer(TrainerBase):
     def run_step(self):
         # implementing transfer learning here
         # Uncomment later!
-        phase = next(transfer_learning)
+        phase = next(self.transfer_learning_gen)
         if phase != -1:
            print("Entered transfer learning phase:", phase)
         self._trainer.iter = self.iter
