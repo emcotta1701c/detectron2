@@ -672,10 +672,12 @@ class DefaultTrainer(TrainerBase):
         ]))
         """
         # Resize, flip augmentation
+        """
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
             T.Resize((1024, 1024)), T.RandomFlip(0.5)
         ]))
+        """
 
         # Rotate, flip augmentation
         """
@@ -693,6 +695,10 @@ class DefaultTrainer(TrainerBase):
             T.Resize((1024, 1024)), T.RandomRotation((-90, 90), expand=False), T.RandomFlip(0.5)
         ]))
         """
+
+        # No augmentations
+        dataloader = build_detection_train_loader(cfg,
+            mapper=DatasetMapper(cfg, is_train=True, augmentations=[]))
         
         return dataloader
         #return build_detection_train_loader(cfg)
