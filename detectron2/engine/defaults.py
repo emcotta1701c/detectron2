@@ -665,17 +665,20 @@ class DefaultTrainer(TrainerBase):
 
         # Minimal flip augmentation
         # With chromosome dataset, ~14GB allocated and then CUDA OOM error
-        """
+        
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
             T.RandomFlip(0.5)
         ]))
+        
+        
         """
         # Resize, flip augmentation
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
-            T.Resize((1024, 1024)), T.RandomFlip(0.5)
+            T.Resize((2048, 2048)), T.RandomFlip(0.5)
         ]))
+        """
 
         # Rotate, flip augmentation
         """
@@ -709,9 +712,20 @@ class DefaultTrainer(TrainerBase):
         """
         test_loader = build_detection_test_loader(cfg, dataset_name)
         """
+        
+        """
         test_loader = build_detection_test_loader(cfg,
             dataset_name,
-            mapper=DatasetMapper(cfg, is_train=False, augmentations=[])
+            mapper=DatasetMapper(cfg, is_train=False, augmentations=[
+                T.Resize((512, 512))
+            ])
+        )
+        """
+        # No resize
+        test_loader = build_detection_test_loader(cfg,
+            dataset_name,
+            mapper=DatasetMapper(cfg, is_train=False, augmentations=[]
+            )
         )
 
         # If want to resize during test time:
