@@ -365,8 +365,8 @@ class DefaultTrainer(TrainerBase):
         checkpointer (DetectionCheckpointer):
         cfg (CfgNode):
     """
-    # Adding new param for adding submodule weight ifle
-    def __init__(self, cfg, backbone_weights=None, trans_lr_iters=[800,1600,2400]):
+    
+    def __init__(self, cfg, trans_lr_iters: dict):
         """
         Args:
             cfg (CfgNode):
@@ -381,14 +381,12 @@ class DefaultTrainer(TrainerBase):
         model = self.build_model(cfg)
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
-
-        # Load part of model, before ddp model created
-        # Can treat as a list in future if want to load multiple submodules
-        if backbone_weights != None:
-            # Confirm backbone_weights file exists
-            # Expecting deserialized .pth
-            model.load_state_dict(backbone_weights, strict=False)
-            # Backbone, or other file, now initialized with pretrained weights.
+        
+        # Model already loads its own weights
+        # Initialize model freezing
+        self.transfer_learning = TransferLearningScheduler(model, cfg, trans_lr_iters)
+        
+        # See resume_or_load() for init_freezing() call, which depends on checkpoint
 
         model = create_ddp_model(model, broadcast_buffers=False)
         self._trainer = (AMPTrainer if cfg.SOLVER.AMP.ENABLED else SimpleTrainer)(
@@ -407,14 +405,9 @@ class DefaultTrainer(TrainerBase):
         self.cfg = cfg
 
         self.register_hooks(self.build_hooks())
-
-        # Implementation of transfer learning here, uncomment when ready
-        self.transfer_learning = self.schedule_transfer_learning
-        if type(trans_lr_iters) is not list:
-            print("Error, DefaultTrainer: expected trans_lr_iters parameter to be a Python list.")
-        if len(trans_lr_iters) != 3:
-            print("Error, DefaultTrainer: expected exactly 3 iteration counts in trans_lr_iters parameter.")
-        self.transfer_learning_gen = self.transfer_learning(iters=trans_lr_iters)
+        
+        # For custom transfer learning
+        self.trans_lr_iters = trans_lr_iters
 
     def resume_or_load(self, resume=True):
         """
@@ -435,6 +428,9 @@ class DefaultTrainer(TrainerBase):
             # The checkpoint stores the training iteration that just finished, thus we start
             # at the next iteration
             self.start_iter = self.iter + 1
+        
+        # Now that we know start_iter, can call transfer learning init_freezing
+        self.transfer_learning.init_freezing(self.start_iter)
 
     def build_hooks(self):
         """
@@ -513,98 +509,9 @@ class DefaultTrainer(TrainerBase):
     def run_step(self):
         # implementing transfer learning here
         # Uncomment later!
-        phase = next(self.transfer_learning_gen)
-        if phase != -1:
-           print("Entered transfer learning phase:", phase)
+        self.transfer_learning.apply_transfer(self.iter)
         self._trainer.iter = self.iter
         self._trainer.run_step()
-    
-    def schedule_transfer_learning(self, iters):
-        # Implemented as a generator
-        # For use only with Generalized R-CNN
-        # Pretrain: Both backbone and mask r-cnn should be loaded separately
-        # Custom backbone should init itself from a file
-        # If backbone random init and mask r-cnn not random init, then only unfreeze backbone
-        # iter 0-1000: Unfreeze backbone last layers (phase 1)
-        # iter 1000-2000: Unfreeze backbone last layers and mask r-cnn heads
-        # iter 2000-: Unfreeze whole model
-        # Freeze backbone up to layer N: TO-DO
-        # Freeze Mask R-CNN ROI Heads: TO-DO
-        # Unfreeze Mask R-CNN ROI Heads: TO-DO
-        # Freeze FPN: TO-DO
-        # Unfreeze FPN: TO-DO
-        # Ignoring learning rate changes for now, can just set learning rate to be small in first place
-        phase = 0 # Freezing not applied yet.
-        # Freeze whole model
-        for param in self.model.parameters():
-            param.requires_grad = False
-        # Phase 1: Unfreeze only the roi_heads
-        # Change later to only unfreeze final backbone layers and fpn <- ?
-        phase = 1
-        for param in self.model.roi_heads.parameters():
-            param.requires_grad = True
-        print("Unfroze ROI heads.")
-        """
-        for param in self.model.backbone.parameters():
-            # Unfreeze all, then freeze with freeze_at param
-            param.requires_grad = True
-        # Now, freeze backbone params up to desired stage (0 - none, 1 - stem, 2 - stem, stage 2, etc.)
-        self.model.backbone.freeze(freeze_at=5) # all stages frozen
-        print("Backbone frozen.")
-        """
-        # self.model.backbone.freeze(freeze_at=4) # only last stage unfrozen
-        # print("Backbone frozen, except for last layer.")
-        yield 1
-
-        while True:
-            if self.iter != iters[phase-1]:
-                yield -1
-            else:
-                break
-
-        # Phase 2: Unfreeze region proposal generator with reduced lr
-        # RPG is called proposal generator in this repo
-        for param in self.model.proposal_generator.parameters():
-            param.requires_grad = True
-        print("Unfroze region proposal generator.")
-        phase = 2
-        yield 2
-
-        while True:
-            if self.iter != iters[phase-1]:
-                yield -1
-            else:
-                break
-
-        # Phase 3: Fine tuning of whole model on all layers with reduced lr
-        # Don't forget to set learning rate lower
-        # Actually, let's just unfreeze last layers of backbone
-        for param in self.model.backbone.parameters():
-            # Unfreeze all, then freeze with freeze_at param
-            param.requires_grad = True
-        # Now, freeze backbone params up to desired stage (0 - none, 1 - stem, 2 - stem + stage 2, etc.)
-        # access underlying backbone
-        backbone = self.model.backbone.bottom_up    # Access ConvNeXtV2 directly
-        backbone.freeze(freeze_at=4)
-        print("Unfroze last layer of backbone.")
-        phase = 3
-        yield 3
-
-        while True:
-            if self.iter != iters[phase-1]:
-                yield -1
-            else:
-                break
-
-        # Unfreeze whole model, phase 4
-        for param in self.model.parameters():
-            param.requires_grad = True
-        phase = 4
-        print("Unfroze whole model. Last transfer learning phase initiated.")
-        yield 4
-
-        while True:
-            yield -1
 
     def state_dict(self):
         ret = super().state_dict()
@@ -894,3 +801,161 @@ for _attr in ["model", "data_loader", "optimizer"]:
             lambda self, value, x=_attr: setattr(self._trainer, x, value),
         ),
     )
+
+# Transfer learning for DefaultTrainer
+
+class TransferLearningScheduler:
+    """
+    Implements phased transfer learning for Detectron2 GeneralizedRCNN models
+    using a dictionary of iteration thresholds.
+    """
+
+    def __init__(self, model, cfg, trans_lr_iters):
+        """
+        Args:
+            model: Detectron2 model (GeneralizedRCNN)
+            trans_lr_iters: dict representing when to unfreeze layers of the form
+                {
+                    "backbone_last_layers": 1000,
+                    "roi_heads": 1000,
+                    "rpn": 2000,
+                    "fpn": 3000,
+                    "all": None  # None means final phase goes indefinitely
+                }
+        """
+        self.model = model
+        self.cfg = cfg
+        self.trans_lr_iters = trans_lr_iters
+        
+        # Precompute stages for ResNet/ConvNeXt
+        if hasattr(model.backbone, "bottom_up"):  # ConvNeXtV2
+            self.backbone_layers = list(model.backbone.bottom_up.children())
+        else:
+            print("detectron2/engine/defaults.py: TransferLearningScheduler, incompatible backbone without proper bottom_up attribute.")
+            raise NotImplementedError
+    
+    # i.e. for checkpointing
+    def init_freezing(self, iter):
+        self._freeze_all()
+        
+        # -------------------------
+        # Phase: Backbone last layers
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("backbone_last_layers", float("inf")):
+            freeze_at = self.cfg.MODEL.BACKBONE.FREEZE_AT
+            if hasattr(self.model.backbone, "bottom_up"):  # ConvNeXtV2
+                for idx, layer in enumerate(self.model.backbone.bottom_up.children(), start=1):
+                    for param in layer.parameters():
+                        param.requires_grad = idx > freeze_at
+            else:
+                print("[TransferLearningScheduler] Error: Backbone not found")
+                raise NotImplementedError
+            print(f"[TransferLearningScheduler] Iter{self.iter}: Unfroze backbone last layers")
+
+        # -------------------------
+        # Phase: ROI heads
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("roi_heads", float("inf")):
+            for param in self.model.roi_heads.parameters():
+                param.requires_grad = True
+
+        # -------------------------
+        # Phase: RPN / proposal generator
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("rpn", float("inf")):
+            for param in self.model.proposal_generator.parameters():
+                param.requires_grad = True
+
+        # -------------------------
+        # Phase: FPN
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("fpn", float("inf")):
+            # FPN layers are usually all children of backbone except 'bottom_up' and 'top_block'
+            fpn_children = [
+                child for name, child in self.model.backbone.named_children()
+                if name not in ("bottom_up", "top_block")
+            ]
+
+            if not fpn_children:
+                print("[TransferLearningScheduler] Error: no FPN layers detected in backbone!")
+                raise NotImplementedError("Backbone does not contain an FPN module.")
+
+            # Unfreeze all parameters in FPN layers
+            for layer in fpn_children:
+                for param in layer.parameters():
+                    param.requires_grad = True
+
+        # -------------------------
+        # Phase: All layers
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("all", float("inf")):
+            for param in self.model.parameters():
+                param.requires_grad = True
+                
+    def _freeze_all(self):
+        for p in self.model.parameters():
+            p.requires_grad = False
+
+    def apply_transfer(self, iter):
+        """
+        Apply parameter freezing/unfreezing based on self.iter and trans_lr_iters.
+        Should be called every iteration.
+        """
+        
+        # -------------------------
+        # Phase: Backbone last layers
+        # -------------------------
+        if iter == self.trans_lr_iters.get("backbone_last_layers", float("inf")):
+            if hasattr(self.model.backbone, "bottom_up"):  # ConvNeXtV2
+                freeze_at = self.cfg.MODEL.BACKBONE.FREEZE_AT
+                for idx, layer in enumerate(self.model.backbone.bottom_up.children(), start=1):
+                    for param in layer.parameters():
+                        param.requires_grad = idx > freeze_at
+            else:
+                print(f"[TransferLearningScheduler] Error: no bottom_up backbone found")
+                raise NotImplementedError
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze backbone last layers")
+
+        # -------------------------
+        # Phase: ROI heads
+        # -------------------------
+        if iter == self.trans_lr_iters.get("roi_heads", float("inf")):
+            for param in self.model.roi_heads.parameters():
+                param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze ROI heads")
+
+        # -------------------------
+        # Phase: RPN / proposal generator
+        # -------------------------
+        if iter == self.trans_lr_iters.get("rpn", float("inf")):
+            for param in self.model.proposal_generator.parameters():
+                param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze RPN")
+
+        # -------------------------
+        # Phase: FPN
+        # -------------------------
+        if iter == self.trans_lr_iters.get("fpn", float("inf")):
+            # FPN layers are usually all children of backbone except 'bottom_up' and 'top_block'
+            fpn_children = [
+                child for name, child in self.model.backbone.named_children()
+                if name not in ("bottom_up", "top_block")
+            ]
+
+            if not fpn_children:
+                print("[TransferLearningScheduler] Error: no FPN layers detected in backbone!")
+                raise NotImplementedError("Backbone does not contain an FPN module.")
+
+            # Unfreeze all parameters in FPN layers
+            for layer in fpn_children:
+                for param in layer.parameters():
+                    param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze FPN")
+
+        # -------------------------
+        # Phase: All layers
+        # -------------------------
+        if iter == self.trans_lr_iters.get("all", float("inf")):
+            for param in self.model.parameters():
+                param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze all layers")
