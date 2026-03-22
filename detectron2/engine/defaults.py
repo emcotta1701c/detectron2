@@ -850,7 +850,6 @@ class TransferLearningScheduler:
             else:
                 print("[TransferLearningScheduler] Error: Backbone not found")
                 raise NotImplementedError
-            print(f"[TransferLearningScheduler] Iter{self.iter}: Unfroze backbone last layers")
 
         # -------------------------
         # Phase: ROI heads
