@@ -448,10 +448,10 @@ class LastLevelMaxPool(nn.Module):
     P6 feature from P5.
     """
 
-    def __init__(self):
+    def __init__(self, in_feature="p5"):
         super().__init__()
         self.num_levels = 1
-        self.in_feature = "p5"
+        self.in_feature = in_feature
 
     def forward(self, x):
         return [F.max_pool2d(x, kernel_size=1, stride=2, padding=0)]
@@ -520,7 +520,7 @@ def build_convnextv2_fpn_backbone(cfg, input_shape: ShapeSpec):
         in_features=in_features,
         out_channels=out_channels,
         norm=cfg.MODEL.FPN.NORM,
-        top_block=LastLevelMaxPool(),
+        top_block=LastLevelMaxPool(in_feature=cfg.MODEL.FPN.TOP_BLOCK_IN_FEATURE),
         fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
     )
     return backbone

@@ -572,11 +572,17 @@ class DefaultTrainer(TrainerBase):
 
         # Minimal flip augmentation
         # With chromosome dataset, ~14GB allocated and then CUDA OOM error
-        
+        """
         dataloader = build_detection_train_loader(cfg,
             mapper=DatasetMapper(cfg, is_train=True, augmentations=[
             T.RandomFlip(0.5)
         ]))
+        """
+        
+        # With self-supervised convnextv2_custom
+        dataloader = build_detection_train_loader(cfg,
+            mapper=DatasetMapper(cfg, is_train=True, augmentations=[])
+        )
         
         
         """
