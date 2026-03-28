@@ -853,6 +853,7 @@ class TransferLearningScheduler:
                 for idx, layer in enumerate(self.model.backbone.bottom_up.children(), start=1):
                     for param in layer.parameters():
                         param.requires_grad = idx > freeze_at
+                print("Unfroze backbone last layers.")
             else:
                 print("[TransferLearningScheduler] Error: Backbone not found")
                 raise NotImplementedError
@@ -863,6 +864,7 @@ class TransferLearningScheduler:
         if iter >= self.trans_lr_iters.get("roi_heads", float("inf")):
             for param in self.model.roi_heads.parameters():
                 param.requires_grad = True
+            print("[TransferLearningScheduler] Unfroze ROI heads.")
 
         # -------------------------
         # Phase: RPN / proposal generator
@@ -870,7 +872,8 @@ class TransferLearningScheduler:
         if iter >= self.trans_lr_iters.get("rpn", float("inf")):
             for param in self.model.proposal_generator.parameters():
                 param.requires_grad = True
-
+            print("[TransferLearningScheduler] Unfroze RPN.")
+            
         # -------------------------
         # Phase: FPN
         # -------------------------
@@ -889,6 +892,7 @@ class TransferLearningScheduler:
             for layer in fpn_children:
                 for param in layer.parameters():
                     param.requires_grad = True
+            print("[TransferLearningScheduler] Unfroze FPN.")
 
         # -------------------------
         # Phase: All layers
@@ -896,10 +900,12 @@ class TransferLearningScheduler:
         if iter >= self.trans_lr_iters.get("all", float("inf")):
             for param in self.model.parameters():
                 param.requires_grad = True
+            print("[TransferLearningScheduler] Unfroze entire model.")
                 
     def _freeze_all(self):
         for p in self.model.parameters():
             p.requires_grad = False
+        print("[TransferLearningScheduler] Froze entire model.")
 
     def apply_transfer(self, iter):
         """
