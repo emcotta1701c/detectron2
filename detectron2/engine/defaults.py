@@ -859,12 +859,24 @@ class TransferLearningScheduler:
                 raise NotImplementedError
 
         # -------------------------
-        # Phase: ROI heads
+        # Phase: ROI class head
         # -------------------------
-        if iter >= self.trans_lr_iters.get("roi_heads", float("inf")):
-            for param in self.model.roi_heads.parameters():
+        if iter >= self.trans_lr_iters.get("roi_class_head", float("inf")):
+            for param in self.model.roi_heads.box_predictor.cls_score.parameters():
                 param.requires_grad = True
-            print("[TransferLearningScheduler] Unfroze ROI heads.")
+            print("[TransferLearningScheduler] Unfroze ROI classification head.")
+        
+        # -------------------------
+        # Phase: ROI mask/bbox heads
+        # -------------------------
+        if iter >= self.trans_lr_iters.get("roi_mask_bbox_heads", float("inf")):
+            for param in self.model.roi_heads.box_predictor.bbox_pred.parameters():
+                param.requires_grad = True
+            print("[TransferLearningScheduler] Unfroze ROI bbox head.")
+            
+            for param in self.model.roi_heads.mask_head.parameters():
+                param.requires_grad = True
+            print("[TransferLearningScheduler] Unfroze ROI mask head.")
 
         # -------------------------
         # Phase: RPN / proposal generator
@@ -926,14 +938,26 @@ class TransferLearningScheduler:
                 print(f"[TransferLearningScheduler] Error: no bottom_up backbone found")
                 raise NotImplementedError
             print(f"[TransferLearningScheduler] Iter{iter}: Unfroze backbone last layers")
-
+        
         # -------------------------
-        # Phase: ROI heads
+        # Phase: ROI class head
         # -------------------------
-        if iter == self.trans_lr_iters.get("roi_heads", float("inf")):
-            for param in self.model.roi_heads.parameters():
+        if iter == self.trans_lr_iters.get("roi_class_head", float("inf")):
+            for param in self.model.roi_heads.box_predictor.cls_score.parameters():
                 param.requires_grad = True
-            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze ROI heads")
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze ROI classification head")
+        
+        # -------------------------
+        # Phase: ROI mask/bbox heads
+        # -------------------------
+        if iter == self.trans_lr_iters.get("roi_mask_bbox_heads", float("inf")):
+            for param in self.model.roi_heads.box_predictor.bbox_pred.parameters():
+                param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze ROI bbox head")
+            
+            for param in self.model.roi_heads.mask_head.parameters():
+                param.requires_grad = True
+            print(f"[TransferLearningScheduler] Iter{iter}: Unfroze ROI mask head")
 
         # -------------------------
         # Phase: RPN / proposal generator

@@ -525,6 +525,31 @@ def build_convnextv2_fpn_backbone(cfg, input_shape: ShapeSpec):
     )
     return backbone
 
+# More generic custom FPN, useful for ConvNeXt V1; not in original detectron2 repo
+@BACKBONE_REGISTRY.register()
+def build_convnextv1_fpn_backbone(cfg, input_shape: ShapeSpec):
+    """
+    Args:
+        cfg: a detectron2 CfgNode
+
+    Returns:
+        backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
+    """
+    # Use backbone registry to access build_convnextv2_backbone()
+
+    bottom_up = BACKBONE_REGISTRY.get("build_convnextv1_backbone")(cfg, input_shape)
+    in_features = cfg.MODEL.FPN.IN_FEATURES
+    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
+    backbone = FPN(
+        bottom_up=bottom_up,
+        in_features=in_features,
+        out_channels=out_channels,
+        norm=cfg.MODEL.FPN.NORM,
+        top_block=LastLevelMaxPool(in_feature=cfg.MODEL.FPN.TOP_BLOCK_IN_FEATURE),
+        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
+    )
+    return backbone
+
 
 @BACKBONE_REGISTRY.register()
 def build_retinanet_resnet_fpn_backbone(cfg, input_shape: ShapeSpec):
